@@ -1,0 +1,19 @@
+.sidebar .sidebar-content {
+    background-image: linear-gradient(#2e7bcf,#2e7bcf);
+    color: white;
+}
+
+.Widget>label {
+    color: white;
+    font-weight: bold;
+}
+
+.stRadio>div{
+    flex-direction:row;
+    align-items: center;
+}
+
+.stRadio>div>label{
+    margin-right: 15px;
+}
+

@@ -4,6 +4,7 @@ import json
 import os
 from datetime import datetime, timedelta
 import calendar
+from functools import lru_cache
 
 # Arquivo JSON para armazenar as empresas e funcionários
 arquivo_empresas = 'empresas.json'
@@ -41,7 +42,7 @@ funcoes_familias = {
     "Zelador": "Z"
 }
 
-# Função para identificar os domingos do mês
+@lru_cache(maxsize=None)
 def obter_domingos(data_inicio):
     data_atual = datetime.strptime(data_inicio, '%Y-%m-%d')
     domingos = []
@@ -146,19 +147,21 @@ data_inicio_funcionario = st.date_input('Data de Início do Turno', value=dateti
 
 if st.button('Cadastrar Funcionário'):
     if nome_funcionario and empresa_selecionada:
-        horario_turno = f"{hora_inicio.strftime('%H:%M')} as {hora_fim.strftime('%H:%M')}"
-
-        # Adicionar o funcionário ao turno selecionado
-        empresas[empresa_selecionada]['funcionarios'][turno_funcionario].append({
-            'nome': nome_funcionario,
-            'funcao': funcao_funcionario,
-            'familia': familia_letras,
-            'horario': horario_turno,
-            'data_inicio': data_inicio_funcionario.strftime('%Y-%m-%d'),
-            'turno': turno_funcionario
-        })
-        salvar_empresas(empresas)
-        st.success(f'Funcionário {nome_funcionario} ({funcao_funcionario}, Família {familia_letras}) cadastrado na empresa {empresa_selecionada} no {turno_funcionario} com horário {horario_turno} e data de início {data_inicio_funcionario.strftime("%d/%m/%Y")}!')
+        try:
+            horario_turno = f"{hora_inicio.strftime('%H:%M')} as {hora_fim.strftime('%H:%M')}"
+            novo_funcionario = {
+                'nome': nome_funcionario,
+                'funcao': funcao_funcionario,
+                'familia': familia_letras,
+                'horario': horario_turno,
+                'data_inicio': data_inicio_funcionario.strftime('%Y-%m-%d'),
+                'turno': turno_funcionario
+            }
+            empresas[empresa_selecionada]['funcionarios'][turno_funcionario].append(novo_funcionario)
+            salvar_empresas(empresas)
+            st.success(f'Funcionário {nome_funcionario} cadastrado com sucesso!')
+        except Exception as e:
+            st.error(f'Erro ao cadastrar funcionário: {str(e)}')
 
 # Cadastro de folguistas
 st.header('Cadastro de Folguistas')
@@ -249,3 +252,38 @@ if 'folguistas_escala' in empresas[empresa_selecionada]:
     st.header('Escala de Folguistas Salva')
     df_folguistas_salva = pd.DataFrame(empresas[empresa_selecionada]['folguistas_escala'])
     st.write(df_folguistas_salva)
+
+# Adicionar opção de exportação
+if st.button('Exportar Escala'):
+    if 'df_final' in locals():
+        csv = df_final.to_csv(index=False)
+        st.download_button(
+            label="Download CSV",
+            data=csv,
+            file_name="escala_final.csv",
+            mime="text/csv",
+        )
+    else:
+        st.warning('Gere a escala antes de exportar.')
+
+class Empresa:
+    def __init__(self, nome):
+        self.nome = nome
+        self.funcionarios = {'Turno 1': [], 'Turno 2': [], 'Turno 3': []}
+        self.folguistas = []
+
+    def adicionar_funcionario(self, funcionario, turno):
+        self.funcionarios[turno].append(funcionario)
+
+    def adicionar_folguista(self, nome):
+        self.folguistas.append(f"{nome} (CP)")
+
+class Funcionario:
+    def __init__(self, nome, funcao, familia, horario, data_inicio, turno):
+        self.nome = nome
+        self.funcao = funcao
+        self.familia = familia
+        self.horario = horario
+        self.data_inicio = data_inicio
+        self.turno = turno
+
